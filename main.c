@@ -329,7 +329,8 @@ struct regexChar **convertToPostfix(char *string, int length)
 	return output;
 }
 
-// Build an NFA from a postfix-form input string
+// TODO: Move from using just states to using states inside fragments, for proper linking when building the nfa
+//  Build an NFA from a postfix-form input string
 struct NFAState *buildNFA(struct regexChar **input, int length)
 {
 	struct NFAState *stack[length];
@@ -397,6 +398,11 @@ struct NFAState *buildNFA(struct regexChar **input, int length)
 				stack[stackPos++] = newState;
 				break;
 			}
+			case atmstone:
+			{
+				struct NFAState *newState = malloc(sizeof(struct NFAState));
+				break;
+			}
 			case star:
 				/* code */
 				break;
@@ -434,7 +440,6 @@ void printNFAHelper(struct NFAState *s0)
 	{
 		if (s0->transition1)
 		{
-
 			char transition = '-';
 			if (!s0->transition1->emptyTransition)
 				transition = s0->transition1->character->character;
