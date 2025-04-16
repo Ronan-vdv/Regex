@@ -8,6 +8,6 @@ I'm following a textbook on compiler construction and also a guide on regex pars
 As of right now I have done:
 
 - ✅ Converting regex to postfix notation for easier conversion to an NFA
-- (In progress) NFA generation
-- ❌ NFA to DFA conversion
+- ✅ NFA generation
+- (In Progress) NFA to DFA conversion
 - ❌ Substring matching
