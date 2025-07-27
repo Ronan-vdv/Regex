@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "common.h"
 #include "NFA.h"
+#include "DFA.h"
 #include "postfix.h"
 
 #define ANSI_RED "\e[0;31m"
@@ -58,15 +59,16 @@ int main(int argc, char *argv[])
 	if (error)
 		printf("%s", error);
 
-	// convertToDFA(state0);
-
-	// printf("%c", state0->transition2->dest);
 	printNFA(state0);
+	printf("\n");
 
-	// Convert to DFA HERE
+	// Convert to DFA
+	struct DFAState *startState = buildDFA(state0, nfaStateList, numNFAStates);
 
 	// Delete the NFA now that it has been used
-	deleteNFA(state0);
+	deleteNFA();
+
+	deleteDFA();
 
 	// Delete the postfix character data
 	ptr = res[0];

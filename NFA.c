@@ -277,6 +277,15 @@ struct NFAState *buildNFA(struct regexChar **input, int length)
     return startState;
 }
 
+struct NFAState *getNFAStateFromId(int id)
+{
+    for (int i = 0; i < numNFAStates; i++)
+        if (nfaStateList[i]->id == id)
+            return nfaStateList[i];
+
+    return 0;
+}
+
 // Print an NFA, given its first state
 // Mostly for debugging
 // If we want to get really mf'ing wild, make this pretty-print a graph of states :)

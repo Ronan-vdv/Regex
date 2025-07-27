@@ -6,6 +6,9 @@
 
 struct NFAState *buildNFA(struct regexChar **input, int length);
 
+extern struct NFAState **nfaStateList;
+extern int numNFAStates;
+
 // A transition in an NFA
 struct NFATransition
 {
@@ -50,6 +53,8 @@ struct NFAPart mergeNFAParts(struct NFAPart p1, struct NFAState *p2);
 struct NFAStatePtrList stateToNFAPtrList(struct NFAState *s);
 //  Build an NFA from a postfix-form input string
 struct NFAState *buildNFA(struct regexChar **input, int length);
+
+struct NFAState *getNFAStateFromId(int id);
 
 // Print an NFA, given its first state
 // Mostly for debugging

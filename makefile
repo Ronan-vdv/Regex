@@ -1,4 +1,4 @@
-regex: common.o NFA.o main.o postfix.o
+regex: common.o NFA.o DFA.o main.o postfix.o
 	gcc -o main *.o -g
 
 main: main.c
@@ -12,6 +12,9 @@ postfix: postfix.h postfix.c
 
 nfa: NFA.c NFA.h
 	gcc -c NFA.c -g
+
+dfa: DFA.c DFA.h
+	gcc -c DFA.c -g
 
 run: regex
 	./main
