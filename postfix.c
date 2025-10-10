@@ -63,7 +63,7 @@ struct regexChar **convertToPostfix(char *string, int length)
                 {
                     if (stackPos <= 0) // Stack is empty without finding matching left parenthesis
                     {
-                        error = "Mismatched parentheses\n";
+                        error = "Mismatched parentheses";
                         return 0;
                     }
                     if (operatorStack[stackPos - 1]->operatorEnum == leftparen)
@@ -117,7 +117,7 @@ struct regexChar **convertToPostfix(char *string, int length)
     {
         if (operatorStack[stackPos - 1]->operatorEnum == leftparen) // Rogue left parenthesis
         {
-            error = "Mismatched parentheses\n";
+            error = "Mismatched parentheses";
             return 0;
         }
         output[outputIndex++] = operatorStack[--stackPos];

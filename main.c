@@ -17,65 +17,98 @@ void printError(char *message)
 
 int main(int argc, char *argv[])
 {
+	bool verbose = false;
+	int flagIndex = -1;
 
-	while (1)
+	if (strcmp(argv[1], "-v") == 0) // Verbose flag
 	{
-		char input = fgetc(stdin);
-		if (input <= 0)
-			break;
-		// Then process input from stdin
+		verbose = true;
+	}
+	else if (argc > 2)
+	{
+		printError("Unknown flag/Too many arguments\n");
+		return 0;
 	}
 
-	if (argc < 2)
+	if (argc < 2 || (verbose && argc < 3))
 	{
 		printError("No regex provided\n");
 		return 0;
 	}
 
+	if ((fseek(stdin, 0, SEEK_END), ftell(stdin)) > 0)
+		while (1)
+		{
+			char input = fgetc(stdin);
+			if (input <= 0)
+				break;
+			// Then process input from stdin
+		}
+
+	int regIndex = argc - 1;
 	int count = 1;
 	int i = 0;
-	char c = argv[1][0];
+	char c = argv[regIndex][0];
 	while (c != '\0')
 	{
 		count++;
-		c = argv[1][++i];
+		c = argv[regIndex][++i];
 	}
 
-	struct regexChar **res = convertToPostfix(argv[1], count);
+	struct regexChar **res = convertToPostfix(argv[regIndex], count);
 	if (error)
 	{
-		printf("%s", error);
+		printError(error);
+		printf("\n");
 		return 0;
 	}
 	// printf("%s", res);
-	struct regexChar *ptr = res[0];
 	int index = 0;
-	printf("Postfix representation: ");
-	while (ptr && !ptr->isTerminal)
+	struct regexChar *ptr = res[0];
+	if (verbose)
 	{
-		if (ptr->isOperator)
-			printf("%c", operatorEnumToChar(ptr->operatorEnum));
-		else
-			printf("%c", ptr->character);
-		ptr = res[++index];
-	}
+		printf("Postfix representation: ");
+		while (ptr && !ptr->isTerminal)
+		{
+			if (ptr->isOperator)
+				printf("%c", operatorEnumToChar(ptr->operatorEnum));
+			else
+				printf("%c", ptr->character);
+			ptr = res[++index];
+		}
 
-	printf("\n\n");
+		printf("\n\n");
+	}
+	else
+	{
+		while (ptr && !ptr->isTerminal)
+			ptr = res[++index];
+	}
 
 	struct NFAState *state0 = buildNFA(res, index + 1);
 
 	if (error)
-		printf("%s", error);
+	{
+		printError(error);
+		printf("\n");
+		return 0;
+	}
 
-	printf("NFA:\n");
-	printNFA(state0);
-	printf("\n");
+	if (verbose)
+	{
+		printf("NFA:\n");
+		printNFA(state0);
+		printf("\n");
+	}
 
 	// Convert to DFA
 	struct DFAState *startState = buildDFA(state0, nfaStateList, numNFAStates);
 
-	printf("DFA:\n");
-	printDFA(startState);
+	if (verbose)
+	{
+		printf("DFA:\n");
+		printDFA(startState);
+	}
 
 	// Delete the NFA now that it has been used
 	deleteNFA();

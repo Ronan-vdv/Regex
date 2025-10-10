@@ -92,9 +92,9 @@ struct NFAState *buildNFA(struct regexChar **input, int length)
             {
             case concat: // Pop two from stack, concat states them and add new one back
             {
-                if (stackPos < 2) // Less than two available. This should never happen
+                if (stackPos < 2) // Less than two available
                 {
-                    error = "(THIS SHOULD NOT BE POSSIBLE) Invalid use of operator ."; // + operatorEnumToChar(character->operatorEnum);
+                    error = "Invalid use of operator (concatenation)";
                     return 0;
                 }
                 struct NFAPart p2 = stack[--stackPos];
@@ -211,6 +211,11 @@ struct NFAState *buildNFA(struct regexChar **input, int length)
             }
             case star:
             {
+                if (stackPos < 1) // Less than one item left or the previous item is an operator
+                {
+                    error = "Invalid use of operator *";
+                    return 0;
+                }
                 struct NFAPart p1 = stack[--stackPos];
 
                 struct NFAState *state = getNewNFAState();
@@ -230,7 +235,7 @@ struct NFAState *buildNFA(struct regexChar **input, int length)
                 newList.list[0] = &state->transition2->dest;
 
                 newPart.outList = newList;
-
+                free(p1.outList.list);
                 stack[stackPos++] = newPart;
                 break;
             }
