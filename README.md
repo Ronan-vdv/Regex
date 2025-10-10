@@ -9,5 +9,5 @@ As of right now I have done:
 
 - ✅ Converting regex to postfix notation for easier conversion to an NFA
 - ✅ NFA generation
-- (In Progress) NFA to DFA conversion
-- ❌ Substring matching
+- ✅ NFA to DFA conversion
+- (In Progress) Substring matching

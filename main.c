@@ -18,6 +18,14 @@ void printError(char *message)
 int main(int argc, char *argv[])
 {
 
+	while (1)
+	{
+		char input = fgetc(stdin);
+		if (input <= 0)
+			break;
+		// Then process input from stdin
+	}
+
 	if (argc < 2)
 	{
 		printError("No regex provided\n");
@@ -52,22 +60,25 @@ int main(int argc, char *argv[])
 		ptr = res[++index];
 	}
 
-	printf("\n");
+	printf("\n\n");
 
 	struct NFAState *state0 = buildNFA(res, index + 1);
 
 	if (error)
 		printf("%s", error);
 
+	printf("NFA:\n");
 	printNFA(state0);
 	printf("\n");
 
 	// Convert to DFA
 	struct DFAState *startState = buildDFA(state0, nfaStateList, numNFAStates);
 
+	printf("DFA:\n");
+	printDFA(startState);
+
 	// Delete the NFA now that it has been used
 	deleteNFA();
-
 	deleteDFA();
 
 	// Delete the postfix character data

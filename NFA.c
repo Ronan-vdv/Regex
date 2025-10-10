@@ -287,61 +287,49 @@ struct NFAState *getNFAStateFromId(int id)
 }
 
 // Print an NFA, given its first state
-// Mostly for debugging
-// If we want to get really mf'ing wild, make this pretty-print a graph of states :)
-void printNFA(struct NFAState *s0)
+
+void printNFAHelper(struct NFAState *s)
 {
-    for (int i = 0; i < numNFAStates; i++)
-        nfaStateList[i]->isVisited = false;
-    printNFAHelper(s0);
+    if (s->isFinal)
+        printf("(|%i|)", s->id);
+    else
+        printf("( %i )", s->id);
 }
 
-void printNFAHelper(struct NFAState *s0)
+void printNFA(struct NFAState *s)
 {
-    if (!s0)
+    if (!s || s->isVisited)
         return;
 
-    char finalIndicator = ' ';
-    if (s0->isFinal)
-        finalIndicator = '|';
-
-    if (s0->isVisited)
+    if (s->transition1)
     {
-        printf("(%c%i%c)", finalIndicator, s0->id, finalIndicator);
-        return;
-    }
-
-    s0->isVisited = true;
-
-    if (s0->transition1)
-    {
-        char transition = '-';
-
-        if (!s0->transition1->emptyTransition)
-            transition = s0->transition1->character->character;
-        printf("(%c%i%c)-%c->", finalIndicator, s0->id, finalIndicator, transition);
-
-        printNFAHelper(s0->transition1->dest);
-    }
-
-    if (s0->transition2)
-    {
+        printNFAHelper(s);
+        char charact = '-';
+        if (!s->transition1->emptyTransition)
+            charact = s->transition1->character->character;
+        printf("-%c->", charact);
+        printNFAHelper(s->transition1->dest);
         printf("\n");
-
-        char transition = '-';
-        if (!s0->transition2->emptyTransition)
-            transition = s0->transition2->character->character;
-        printf("(%c%i%c)-%c->", finalIndicator, s0->id, finalIndicator, transition);
-
-        printNFAHelper(s0->transition2->dest);
     }
 
-    if (!s0->transition1 && !s0->transition2)
+    if (s->transition2)
     {
-        printf("(%c%i%c)", finalIndicator, s0->id, finalIndicator);
+        printNFAHelper(s);
+        char charact = '-';
+        if (!s->transition2->emptyTransition)
+            charact = s->transition2->character->character;
+        printf("-%c->", charact);
+        printNFAHelper(s->transition2->dest);
+        printf("\n");
     }
-}
 
+    s->isVisited = true;
+
+    if (s->transition1)
+        printNFA(s->transition1->dest);
+    if (s->transition2)
+        printNFA(s->transition2->dest);
+}
 // Deletes all states found in the global NFA state list
 void deleteNFA()
 {

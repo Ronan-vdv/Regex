@@ -1,11 +1,7 @@
 #include "DFA.h"
 
-// Need to traverse the NFA and convert NFA states to DFA states.
-// We do this by looking at the e-closures of the states, converting a set of those states to a single DFA state
-// So for each state and each transition in the NFA, look at all the next states that can be reached with that. This includes empty transitions
-// 1. For each state, start by checking e-closure to create equivalent set of states.
-// 2. For each transition of each NFA state in that set, create a set of reachable states for each transition
-// 3. Either create a new equivalent state
+// This leaves a lot to be desired, however the conversion does work.
+// I think maybe something like a transition table would have worked better instead of using structs in an OOP fashion
 
 struct DFAState **dfaStateList = 0; // A list of all created states to have an easy handle on all of them
 int numDFAStates = 0;
@@ -20,6 +16,9 @@ struct DFAState *getNewDFAState()
     s->isVisited = false;
     s->transitions = 0;
     s->numTransitions = 0;
+    s->nfaStatesEq = 0;
+    s->numNFAStates = 0;
+    s->maxNumTransitions = 0;
 
     if (numDFAStates == dfaStatesSize) // Check if we've run out of space in the states array. TODO: Probably not necessary, I don't think it can ever exceed due to nature of NFA construction
     {
@@ -36,20 +35,90 @@ struct DFAState *getNewDFAState()
     return s;
 }
 
+// Given a set of equivalent NFA states, either add a new DFA state or return an already existing one that is equivalent to the given states
+struct DFAState *addNewDFAState(struct NFAStateLL *stateSet)
+{
+    for (int i = 0; i < numDFAStates; i++)
+    {
+        struct DFAState *curState = dfaStateList[i];
+
+        struct NFAStateLL *statePtr = stateSet;
+        bool eq = true;
+        for (int p = 0; p < curState->numNFAStates; p++)
+        {
+            if (!statePtr || curState->nfaStatesEq[p]->id != statePtr->nfaState->id) // Difference in number of states or states not the same
+            {
+
+                eq = false;
+                break;
+            }
+
+            statePtr = statePtr->next;
+        }
+
+        if (eq && statePtr && statePtr->next) // There are more NFA states in stateSet than in the current DFA state
+            eq = false;
+
+        if (eq) // Found an already existing equivalent state
+        {
+            // Delete the passed-in list since it's no longer needed
+            struct NFAStateLL *curPtr = stateSet;
+            while (curPtr)
+            {
+                struct NFAStateLL *next = curPtr->next;
+                free(curPtr);
+                curPtr = next;
+            }
+
+            return curState;
+        }
+    }
+
+    // If we get here then there are no pre-existing states that match the one being added, so we can create a new one
+
+    struct DFAState *newState = getNewDFAState();
+    // First count number of states in the list and also set the Final variable for this new state
+    struct NFAStateLL *statePtr = stateSet;
+    int scount = 0;
+    while (statePtr)
+    {
+        scount++;
+        newState->isFinal = newState->isFinal || statePtr->nfaState->isFinal;
+        statePtr = statePtr->next;
+    }
+
+    newState->numNFAStates = scount;
+    newState->nfaStatesEq = malloc(sizeof(struct NFAState *) * scount);
+
+    // Populate state array from list
+    statePtr = stateSet;
+    int i = 0;
+
+    while (statePtr)
+    {
+        newState->nfaStatesEq[i++] = statePtr->nfaState;
+        struct NFAStateLL *next = statePtr->next;
+        free(statePtr);
+        statePtr = next;
+    }
+
+    return newState;
+}
+
 // Recursively build a structure to get the closure of an nfastate
-void getEClosure(struct NFAState *statePtr, int **closureList, int *closureIndex, int *closureArraySize)
+void getEClosure(struct NFAState *statePtr, struct NFAState ***closureList, int *closureIndex, int *closureArraySize)
 {
     // First check if we've already checked this state
     for (int i = 0; i < *closureIndex; i++)
     {
-        if ((*closureList)[i] == statePtr->id)
+        if ((*closureList)[i]->id == statePtr->id)
             return;
     }
 
     // Then check if the array is still big enough
     if (*closureIndex >= *closureArraySize)
     {
-        int *newList = malloc(sizeof(int) * (*closureArraySize) * 2);
+        struct NFAState **newList = malloc(sizeof(struct NFAState *) * (*closureArraySize) * 2);
         for (int i = 0; i < *closureArraySize; i++)
         {
             newList[i] = (*closureList)[i];
@@ -60,7 +129,7 @@ void getEClosure(struct NFAState *statePtr, int **closureList, int *closureIndex
         *closureArraySize *= 2;
     }
 
-    (*closureList)[(*closureIndex)++] = statePtr->id;
+    (*closureList)[(*closureIndex)++] = statePtr;
 
     if (statePtr->transition1 && statePtr->transition1->emptyTransition)
         getEClosure(statePtr->transition1->dest, closureList, closureIndex, closureArraySize);
@@ -69,102 +138,259 @@ void getEClosure(struct NFAState *statePtr, int **closureList, int *closureIndex
         getEClosure(statePtr->transition2->dest, closureList, closureIndex, closureArraySize);
 }
 
-// Get the index of a certain closure in an array
-int getIndexOfClosure(struct NFAClosureList *targetClosure, struct NFAClosureList *closureLists, int closureArraySize)
+struct NFAStateLL *getNewNFAStateLL(struct NFAState *s)
 {
-    for (int i = 0; i < closureArraySize; i++)
-    {
-        // Now compare closures to see if they're equivalent
-        bool isRightOne = (closureLists)[i].listSize == targetClosure->listSize;
-        for (int k = 0; k < targetClosure->listSize && isRightOne; k++)
-            isRightOne = targetClosure->ids[k] == (closureLists[i]).ids[k];
+    struct NFAStateLL *n = malloc(sizeof(struct NFAStateLL));
+    n->next = 0;
+    n->nfaState = s;
+    return n;
+}
 
-        if (isRightOne)
-            return i;
+struct CharStateMapLL *getNewCharStateMapLL(char c)
+{
+    struct CharStateMapLL *n = malloc(sizeof(struct CharStateMapLL));
+    n->character = c;
+    n->next = 0;
+    n->stateList = 0;
+    return n;
+}
+
+void addStateToList(struct NFAStateLL **headPtr, struct NFAState *s)
+{
+    if (!(*headPtr)) // No states yet
+    {
+        *headPtr = getNewNFAStateLL(s);
+        return;
     }
 
-    return -1;
+    if (s->id == (*headPtr)->nfaState->id) // State already present
+        return;
+
+    if (s->id < (*headPtr)->nfaState->id) // Need to set this new state as the head
+    {
+        struct NFAStateLL *newS = getNewNFAStateLL(s);
+        newS->next = *headPtr;
+        *headPtr = newS;
+        return;
+    }
+
+    struct NFAStateLL *ptr = *headPtr;
+    while (ptr->next && s->id >= ptr->next->nfaState->id) // Find the right position for this state based on order of their ids
+    {
+        if (s->id == ptr->next->nfaState->id) // State already present in this set
+            return;
+
+        ptr = ptr->next;
+    }
+
+    // Insert in between two states
+    struct NFAStateLL *newS = getNewNFAStateLL(s);
+    newS->next = ptr->next;
+    ptr->next = newS;
+}
+
+void addTransitionToMap(struct CharStateMapLL **headPtr, char c)
+{
+
+    struct CharStateMapLL *ptr = *headPtr;
+    if (!ptr) // Check if this will be the first transition
+    {
+        *headPtr = getNewCharStateMapLL(c);
+        return;
+    }
+    struct CharStateMapLL *prev;
+
+    while (ptr)
+    {
+        if (ptr->character == c) // Transition already exists
+            return;
+        prev = ptr;
+        ptr = ptr->next;
+    }
+
+    // Transition does not exist, add it
+    prev->next = getNewCharStateMapLL(c);
+}
+
+// This basically bridges addTransitionToMap and addStateToList
+// It finds the list by character, then adds the state to the correct list
+void addStateToCharTransition(struct CharStateMapLL *head, struct NFAState *s, char c)
+{
+    struct CharStateMapLL *ptr = head;
+    while (ptr)
+    {
+        if (ptr->character == c)
+        {
+            addStateToList(&(ptr->stateList), s);
+            return;
+        }
+        ptr = ptr->next;
+    }
+}
+
+void addTransitionToState(struct DFAState *s, char c, struct DFAState *dest)
+{
+    if (s->numTransitions == s->maxNumTransitions) // Check if array needs to be resized before adding to it
+    {
+        int newSize = s->maxNumTransitions + 10;
+        struct DFATransition **newList = malloc(sizeof(struct DFATransition *) * newSize);
+        s->maxNumTransitions = newSize;
+        for (int i = 0; i < s->numTransitions; i++)
+        {
+            newList[i] = s->transitions[i];
+        }
+        if (s->transitions)
+            free(s->transitions);
+        s->transitions = newList;
+    }
+
+    struct DFATransition *newT = malloc(sizeof(struct DFATransition));
+    newT->character = c;
+    newT->dest = dest;
+    s->transitions[s->numTransitions++] = newT;
 }
 
 struct DFAState *buildDFA(struct NFAState *s0, struct NFAState **nfaStList, int nfaLength)
 {
+    /*
+        1. For start state, find e-closure. Result is start state of DFA. Add to list
+        2. For each unmarked DFA state:
+            2.1 Mark and find transitions. For every NFA state in the set, get the set of states for each transition + e-closure
+            2.2 For every transition, add a new unmarked DFA state equivalent
+            2.3 When adding a new DFA state, check if there is already an existing equivalent (all NFA states match)
+        3. Final states of the DFA contain at least one final state of the NFA
+    */
+
     numDFAStates = 0;
     dfaStateList = malloc(sizeof(struct DFAState) * nfaLength);
     dfaStatesSize = nfaLength;
 
-    struct DFAState *start = 0;
+    struct DFAState *start = getNewDFAState();
 
-    struct NFAClosureList *closures = malloc(sizeof(struct NFAClosureList) * nfaLength);
+    int closureArraySize = 10;
+    int closureCount = 0;
+    struct NFAState **closureList = malloc(sizeof(struct NFAState *) * closureArraySize);
+    getEClosure(s0, &closureList, &closureCount, &closureArraySize);
 
-    // First, get epsilon closures of states
-    for (int i = 0; i < nfaLength; i++)
+    // Initialise nfastate equivalence list by copying from the closure we got
+    // Also sort the list
+    start->nfaStatesEq = malloc(sizeof(struct NFAState *) * closureCount);
+    start->numNFAStates = closureCount;
+    for (int i = 0; i < closureCount; i++)
     {
-        struct NFAState *ptr = nfaStList[i];
-        int closureArraySize = 10;
-        int closureCount = 0;
-        int *closureList = malloc(sizeof(int) * closureArraySize);
-
-        getEClosure(ptr, &closureList, &closureCount, &closureArraySize);
-
-        closures[i].stateId = ptr->id;
-        closures[i].listSize = closureCount;
-        closures[i].ids = closureList;
-
-        struct DFAState *newState = getNewDFAState();
-    }
-
-    // For each e-closure and created equivalent DFA state,
-    // Start building up transitions
-    for (int i = 0; i < nfaLength; i++)
-    {
-        int closureCount = closures[i].listSize;
-        int *closureList = closures[i].ids;
-
-        // For every state listed in the closure, get transitions to existing NFA states
-        // The new destination in the DFA will be the e-closure of that state's equivalent
+        int currentSmallest = 999999;
+        int currentSmallestIndex;
         for (int k = 0; k < closureCount; k++)
         {
-            struct NFAState *nfas = getNFAStateFromId(closureList[k]);
-
-            if (nfas->transition1 && !nfas->transition1->emptyTransition)
+            if (closureList[k] && closureList[k]->id < currentSmallest)
             {
-                int closureArraySize2 = 10;
-                int closureCount2 = 0;
-                int *closureList2 = malloc(sizeof(int) * closureArraySize2);
-                getEClosure(nfas->transition1->dest, &closureList2, &closureCount2, &closureArraySize2);
-
-                struct NFAClosureList cl2;
-                cl2.ids = closureList2;
-                cl2.stateId = nfas->id;
-                cl2.listSize = closureCount2;
-
-                int ind = getIndexOfClosure(&cl2, closures, nfaLength);
-                printf("Adding transition from %i to %i on %c\n", i, ind, nfas->transition1->character->character);
-                free(closureList2);
+                currentSmallest = closureList[k]->id;
+                currentSmallestIndex = k;
             }
+        }
+
+        start->nfaStatesEq[i] = closureList[currentSmallestIndex];
+        closureList[currentSmallestIndex] = 0;
+    }
+    free(closureList);
+
+    for (int stateCount = 0; stateCount < numDFAStates; stateCount++) // For each unprocessed DFA state....
+    {
+        // Get transitions and e-closures for all states in the NFAState array, while new states are being added
+
+        struct DFAState *currentState = dfaStateList[stateCount];
+        struct CharStateMapLL *charStateMapList = 0; // A list of mappings from a character to a set of states, representing transitions
+
+        for (int i = 0; i < currentState->numNFAStates; i++) // For every NFA state in this set of states....
+        {
+            // For every character transition get the destination and the epsilon-closure
+            struct NFAState *currentNFAState = currentState->nfaStatesEq[i];
+            if (currentNFAState->transition1 && !currentNFAState->transition1->emptyTransition)
+            {
+                int closureArraySize = 10;
+                int closureCount = 0;
+                struct NFAState **closure = malloc(sizeof(struct NFAState *) * closureArraySize);
+                getEClosure(currentNFAState->transition1->dest, &closure, &closureCount, &closureArraySize);
+
+                addTransitionToMap(&charStateMapList, currentNFAState->transition1->character->character);
+                for (int s = 0; s < closureCount; s++)
+                    addStateToCharTransition(charStateMapList, closure[s], currentNFAState->transition1->character->character);
+
+                free(closure);
+            }
+
+            if (currentNFAState->transition2 && !currentNFAState->transition2->emptyTransition)
+            {
+                int closureArraySize = 10;
+                int closureCount = 0;
+                struct NFAState **closure = malloc(sizeof(struct NFAState *) * closureArraySize);
+                getEClosure(currentNFAState->transition2->dest, &closure, &closureCount, &closureArraySize);
+
+                addTransitionToMap(&charStateMapList, currentNFAState->transition2->character->character);
+                for (int s = 0; s < closureCount; s++)
+                    addStateToCharTransition(charStateMapList, closure[s], currentNFAState->transition2->character->character);
+
+                free(closure);
+            }
+        }
+
+        // Now iterate over all the sets of states (mapped to characters as transitions) and add new equivalent DFA states for them
+        struct CharStateMapLL *ptr = charStateMapList;
+        while (ptr)
+        {
+            // Get an equivalent DFA state and add a transition to it
+            int t = ptr->stateList->nfaState->id;
+
+            struct DFAState *newState = addNewDFAState(ptr->stateList);
+            addTransitionToState(currentState, ptr->character, newState);
+            struct CharStateMapLL *next = ptr->next;
+            free(ptr);
+            ptr = next;
         }
     }
 
-    for (int i = 0; i < nfaLength; i++)
-    {
-        for (int k = 0; k < closures[i].listSize; k++)
-            printf("%i, ", closures[i].ids[k]);
-        printf("\n");
-        free(closures[i].ids);
-    }
-
-    free(closures);
-
-    return 0;
+    return start;
 }
 
 void deleteDFA()
 {
-    // TODO
-    //  for (int i = 0; i < numDFAStates; i++)
-    //  {
-    //      free(dfaStateList[i]);
-    //  }
+    for (int i = 0; i < numDFAStates; i++)
+    {
+        for (int k = 0; k < dfaStateList[i]->numTransitions; k++)
+            free(dfaStateList[i]->transitions[k]);
+        free(dfaStateList[i]->transitions);
+        free(dfaStateList[i]->nfaStatesEq); // Free the NFAStates array but not the NFA states themselves, since they are still part of an existing NFA
+        free(dfaStateList[i]);
+    }
 
-    // free(dfaStateList);
+    free(dfaStateList);
+}
+
+void printDFAHelper(struct DFAState *s)
+{
+    if (s->isFinal)
+        printf("(|%i|)", s->id);
+    else
+        printf("( %i )", s->id);
+}
+
+void printDFA(struct DFAState *s)
+{
+    if (s->isVisited)
+        return;
+
+    for (int i = 0; i < s->numTransitions; i++)
+    {
+        printDFAHelper(s);
+        printf("-%c->", s->transitions[i]->character);
+        printDFAHelper(s->transitions[i]->dest);
+        printf("\n");
+    }
+
+    s->isVisited = true;
+
+    for (int i = 0; i < s->numTransitions; i++)
+    {
+        printDFA(s->transitions[i]->dest);
+    }
 }
