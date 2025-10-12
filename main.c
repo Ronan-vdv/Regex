@@ -8,6 +8,7 @@
 #include "postfix.h"
 
 #define ANSI_RED "\e[0;31m"
+#define ANSI_CYAN "\e[0;36m"
 #define ANSI_WHITE "\e[0;37m"
 
 void printError(char *message)
@@ -36,15 +37,6 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	if ((fseek(stdin, 0, SEEK_END), ftell(stdin)) > 0)
-		while (1)
-		{
-			char input = fgetc(stdin);
-			if (input <= 0)
-				break;
-			// Then process input from stdin
-		}
-
 	int regIndex = argc - 1;
 	int count = 1;
 	int i = 0;
@@ -67,7 +59,7 @@ int main(int argc, char *argv[])
 	struct regexChar *ptr = res[0];
 	if (verbose)
 	{
-		printf("Postfix representation: ");
+		printf("Postfix representation of regex:\n");
 		while (ptr && !ptr->isTerminal)
 		{
 			if (ptr->isOperator)
@@ -106,8 +98,98 @@ int main(int argc, char *argv[])
 
 	if (verbose)
 	{
-		printf("DFA:\n");
+		printf("DFA state equivalence to NFA:\n");
+		printfDFAEqStates();
+		printf("\nDFA:\n");
 		printDFA(startState);
+	}
+
+	int nmBufferSize = 50;
+	int nmBufferReadIndex = 0;
+	int nmBufferWriteIndex = 0;
+	char *nmBuffer = malloc(sizeof(char) * nmBufferSize); // NonMatchBuffer to hold all the rest of the string that does not match (for some nice output later)
+
+	int tokenBufferSize = 50;
+	int tokenBufferReadIndex = 0;
+	int tokenBufferWriteIndex = 0;
+	char *tokenBuffer = malloc(sizeof(char) * tokenBufferSize); // To hold existing token (string match) as it gets matched
+
+	struct DFAState *currentState = startState;
+
+	char line[4096];
+	while (fgets(line, sizeof(line), stdin))
+	{
+		size_t len = strlen(line);
+		if (len && line[len - 1] == '\n')
+			line[len - 1] = '\0';
+
+		int matchStart = 0;
+		int matchEnd = 0;
+		bool startedMatch = false; // Started a potential match
+		bool foundMatch = false;   // Found a match (went to a final state)
+		bool lineMatch = false;
+
+		for (int l = 0; l < len;)
+		{
+			char input = line[l];
+			bool canTransition = false;
+
+			// Find a transition that will work for this input
+			for (int i = 0; i < currentState->numTransitions; i++)
+			{
+				if (currentState->transitions[i]->character == input) // Perform transition
+				{
+					if (!startedMatch)
+					{
+						startedMatch = true;
+						matchStart = l;
+					}
+
+					canTransition = true;
+					currentState = currentState->transitions[i]->dest;
+
+					if (currentState->isFinal) // Print everything in this line
+					{
+						lineMatch = true; // There has been at least one match in this line
+						// Print first part of line (after last match)
+
+						for (int ch = matchEnd; ch < matchStart; ch++)
+							printf("%c", line[ch]);
+
+						matchEnd = l + 1;
+
+						// Print match
+						printf("%s", ANSI_CYAN);
+						for (int ch = matchStart; ch < l + 1; ch++)
+							printf("%c", line[ch]);
+						printf("%s", ANSI_WHITE);
+
+						// Reset how we measure the next match
+						matchStart = matchEnd;
+						foundMatch = true;
+					}
+					break;
+				}
+			}
+
+			l++;
+			if (!canTransition) // Whatever has been processed since the last match checkpoint is no longer valid
+			{
+				currentState = startState;
+				startedMatch = false;
+				if (foundMatch) // Reset to last matchend
+					l = matchEnd;
+
+				foundMatch = false;
+			}
+		}
+
+		if (lineMatch) // Only print the rest of the chars in this line if there was at least one match
+		{
+			for (int i = matchEnd; i < len; i++)
+				printf("%c", line[i]);
+			printf("\n");
+		}
 	}
 
 	// Delete the NFA now that it has been used

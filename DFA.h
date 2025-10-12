@@ -53,6 +53,7 @@ struct DFAState
 
 struct DFAState *buildDFA(struct NFAState *s0, struct NFAState **nfaStList, int nfaLength);
 void printDFA(struct DFAState *s);
+void printfDFAEqStates();
 void deleteDFA();
 
 #endif

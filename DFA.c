@@ -265,6 +265,7 @@ struct DFAState *buildDFA(struct NFAState *s0, struct NFAState **nfaStList, int 
     dfaStateList = malloc(sizeof(struct DFAState) * nfaLength);
     dfaStatesSize = nfaLength;
 
+    // Get start state before the others
     struct DFAState *start = getNewDFAState();
 
     int closureArraySize = 10;
@@ -290,6 +291,7 @@ struct DFAState *buildDFA(struct NFAState *s0, struct NFAState **nfaStList, int 
         }
 
         start->nfaStatesEq[i] = closureList[currentSmallestIndex];
+        start->isFinal = start->isFinal || start->nfaStatesEq[i]->isFinal;
         closureList[currentSmallestIndex] = 0;
     }
     free(closureList);
@@ -339,8 +341,6 @@ struct DFAState *buildDFA(struct NFAState *s0, struct NFAState **nfaStList, int 
         while (ptr)
         {
             // Get an equivalent DFA state and add a transition to it
-            int t = ptr->stateList->nfaState->id;
-
             struct DFAState *newState = addNewDFAState(ptr->stateList);
             addTransitionToState(currentState, ptr->character, newState);
             struct CharStateMapLL *next = ptr->next;
@@ -392,5 +392,23 @@ void printDFA(struct DFAState *s)
     for (int i = 0; i < s->numTransitions; i++)
     {
         printDFA(s->transitions[i]->dest);
+    }
+}
+
+void printfDFAEqStates()
+{
+    for (int i = 0; i < numDFAStates; i++)
+    {
+        char surround = ' ';
+        if (dfaStateList[i]->isFinal)
+            surround = '|';
+        printf("(%c%i%c) => {", surround, dfaStateList[i]->id, surround);
+        for (int k = 0; k < dfaStateList[i]->numNFAStates; k++)
+        {
+            printf("%i", dfaStateList[i]->nfaStatesEq[k]->id);
+            if (k < dfaStateList[i]->numNFAStates - 1)
+                printf(",");
+        }
+        printf("}\n");
     }
 }
