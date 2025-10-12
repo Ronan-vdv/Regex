@@ -10,4 +10,8 @@ As of right now I have done:
 - ✅ Converting regex to postfix notation for easier conversion to an NFA
 - ✅ NFA generation
 - ✅ NFA to DFA conversion
-- (In Progress) Substring matching
+- ✅ Substring matching
+
+Now it's finally mostly working!
+It's possible there might be a few bugs or strings that don't match properly.
+The current implementation of how substrings are selected also leads to the _ and + operators to essentially be equivalent, since right now the _ operator only selects string with at least one of a substring
