@@ -1,5 +1,5 @@
 regex: common.o NFA.o DFA.o main.o postfix.o
-	gcc -o main *.o -g
+	gcc -o rex *.o -g
 
 main: main.c
 	gcc -c main.c -g
@@ -17,7 +17,7 @@ dfa: DFA.c DFA.h
 	gcc -c DFA.c -g
 
 run: regex
-	./main
+	./rex
 
 clean:
-	rm main *.o
+	rm rex *.o

@@ -25,6 +25,7 @@ struct NFATransition *getNewNFATransition(char c)
     trans->character = getNonTerminalCharRCharacter(c);
     trans->dest = 0;
     trans->emptyTransition = false;
+    return trans;
 }
 
 // Add two statelists together

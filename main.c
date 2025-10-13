@@ -9,11 +9,16 @@
 
 #define ANSI_RED "\e[0;31m"
 #define ANSI_CYAN "\e[0;36m"
-#define ANSI_WHITE "\e[0;37m"
+#define ANSI_RESET "\e[m"
 
 void printError(char *message)
 {
-	printf("%s%s%s", ANSI_RED, message, ANSI_WHITE);
+	printf("%s%s%s", ANSI_RED, message, ANSI_RESET);
+}
+
+void printUsage()
+{
+	printf("Usage: rex [-v] PATTERN\n");
 }
 
 int main(int argc, char *argv[])
@@ -21,20 +26,20 @@ int main(int argc, char *argv[])
 	bool verbose = false;
 	int flagIndex = -1;
 
-	if (strcmp(argv[1], "-v") == 0) // Verbose flag
+	if (argc < 2)
 	{
-		verbose = true;
-	}
-	else if (argc > 2)
-	{
-		printError("Unknown flag/Too many arguments\n");
+		printUsage();
 		return 0;
 	}
 
-	if (argc < 2 || (verbose && argc < 3))
+	if (strcmp(argv[1], "-v") == 0) // Verbose flag
 	{
-		printError("No regex provided\n");
-		return 0;
+		verbose = true;
+		if (argc != 3)
+		{
+			printUsage();
+			return 0;
+		}
 	}
 
 	int regIndex = argc - 1;
@@ -162,7 +167,7 @@ int main(int argc, char *argv[])
 						printf("%s", ANSI_CYAN);
 						for (int ch = matchStart; ch < l + 1; ch++)
 							printf("%c", line[ch]);
-						printf("%s", ANSI_WHITE);
+						printf("%s", ANSI_RESET);
 
 						// Reset how we measure the next match
 						matchStart = matchEnd;
