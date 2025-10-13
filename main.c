@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	if (strcmp(argv[1], "-v") == 0) // Verbose flag
+	if (!strcmp(argv[1], "-v")) // Verbose flag
 	{
 		verbose = true;
 		if (argc != 3)
@@ -40,6 +40,11 @@ int main(int argc, char *argv[])
 			printUsage();
 			return 0;
 		}
+	}
+	else if (argc != 2)
+	{
+		printUsage();
+		return 0;
 	}
 
 	int regIndex = argc - 1;
