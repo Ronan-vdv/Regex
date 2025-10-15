@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include "common.h"
 #include "NFA.h"
 #include "DFA.h"
@@ -46,6 +47,8 @@ int main(int argc, char *argv[])
 		printUsage();
 		return 0;
 	}
+
+	bool useCols = isatty(fileno(stdout)); // Decide if we want to output ansii escape codes for colours
 
 	int regIndex = argc - 1;
 	int count = 1;
@@ -131,7 +134,10 @@ int main(int argc, char *argv[])
 	{
 		size_t len = strlen(line);
 		if (len && line[len - 1] == '\n')
+		{
 			line[len - 1] = '\0';
+			len--; // Decrease len since we're effectively removing the last character
+		}
 
 		int matchStart = 0;
 		int matchEnd = 0;
@@ -169,10 +175,14 @@ int main(int argc, char *argv[])
 						matchEnd = l + 1;
 
 						// Print match
-						printf("%s", ANSI_CYAN);
+						if (useCols)
+							printf("%s", ANSI_CYAN);
+
 						for (int ch = matchStart; ch < l + 1; ch++)
 							printf("%c", line[ch]);
-						printf("%s", ANSI_RESET);
+
+						if (useCols)
+							printf("%s", ANSI_RESET);
 
 						// Reset how we measure the next match
 						matchStart = matchEnd;
